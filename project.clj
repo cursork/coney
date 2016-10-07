@@ -4,7 +4,7 @@
   :license {:name "Mozilla Public License Version 1.1"
             :url "https://www.mozilla.org/MPL/1.1/"}
   :dependencies [
-                 [org.clojure/clojure "1.6.0"]
+                 [org.clojure/clojure "1.8.0"]
                  [org.clojure/data.codec "0.1.0"]
                  [digest "1.4.4"]
                  [http-kit "2.1.16"]
