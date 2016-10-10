@@ -29,6 +29,7 @@
   )
 )
 
+;; TODO this doesn't work
 (defn check-rabbit-password [test-password password-hash]
   (if (or (contains? #{"" nil} password-hash) (nil? test-password))
     false
