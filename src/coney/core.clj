@@ -1,13 +1,15 @@
 (ns coney.core
   (:gen-class)
-  (:require [clojure.edn :as edn]
+  (:require [cheshire.core :as cheshire]
+            [clojure.data :as cdata]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
             [clojure.set :as cset]
-            [org.httpkit.client :as http]
-            [cheshire.core :as cheshire]
-            [coney.rabbit-password :as rp]
+            [clojure.string :refer [join]]
             [clojure.tools.cli :refer [parse-opts]]
-            [clojure.string :refer [join]]))
+            [coney.rabbit-password :as rp]
+            [org.httpkit.client :as http]))
 
 (def root (atom "http://localhost:15672/api/"))
 (def basic-auth (atom ["guest" "guest"]))
@@ -53,7 +55,8 @@
                   ["-f" "--filetype FILETYPE" :default :json :parse-fn #(keyword %)]
                   [nil "--username USERNAME" :default "guest"]
                   [nil "--password PASSWORD" :default "guest"]
-                  [nil "--dry-run"]])
+                  [nil "--dry-run"]
+                  [nil "--verbose"]])
 
 (defn exit [status msg]
   (println msg)
@@ -171,14 +174,26 @@
         (apply-fn thing)))))
 
 (defn run
-  [filetype filename dry-run]
-  (let [existing (->> (api-get ["definitions"]) keyed-config)
-        wanted   (->> (parse-file filetype filename) keyed-config verify-config)
-        dff      (diff existing wanted)]
-    (println "Diff to apply:")
-    (clojure.pprint/pprint dff)
-    (when-not dry-run
-      (apply-diff dff))))
+  ([filetype filename] (run false false))
+  ([filetype filename verbose dry-run]
+   (let [existing (->> (api-get ["definitions"]) keyed-config)
+         wanted   (->> (parse-file filetype filename) keyed-config verify-config)
+         _        (when verbose
+                    (println "==== Existing ====")
+                    (pprint existing)
+                    (println "\n==== Wanted ====")
+                    (pprint wanted)
+                    (println "\n==== Raw data diff ====")
+                    (let [[only-wanted only-existing in-both] (cdata/diff wanted existing)]
+                      (println "\n== Only in wanted ==")
+                      (pprint only-wanted)
+                      (println "\n== Only in existing ==")
+                      (pprint only-existing)))
+         dff      (diff existing wanted)]
+     (println "Diff to apply:")
+     (clojure.pprint/pprint dff)
+     (when-not dry-run
+       (apply-diff dff)))))
 
 (defn -main
   [& args]
@@ -190,5 +205,5 @@
       errors (exit 1 (error-msg errors))
       (not= (count arguments) 1) (exit 1 (format "Need a single file argument, but got %d arguments" (count arguments)))
       (not (file-exists (first arguments))) (exit 1 (error-msg [(format "No such file '%s'" (first arguments))]))
-      :default (run (:filetype options) (first arguments) (:dry-run options)))))
+      :default (run (:filetype options) (first arguments) (:verbose options) (:dry-run options)))))
 
