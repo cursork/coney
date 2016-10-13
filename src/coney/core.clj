@@ -52,7 +52,8 @@
                   [nil "--url URL" :default "http://localhost:15672/api/"]
                   ["-f" "--filetype FILETYPE" :default :json :parse-fn #(keyword %)]
                   [nil "--username USERNAME" :default "guest"]
-                  [nil "--password PASSWORD" :default "guest"]])
+                  [nil "--password PASSWORD" :default "guest"]
+                  [nil "--dry-run"]])
 
 (defn exit [status msg]
   (println msg)
@@ -170,13 +171,14 @@
         (apply-fn thing)))))
 
 (defn run
-  [filetype filename]
+  [filetype filename dry-run]
   (let [existing (->> (api-get ["definitions"]) keyed-config)
         wanted   (->> (parse-file filetype filename) keyed-config verify-config)
         dff      (diff existing wanted)]
     (println "Diff to apply:")
     (clojure.pprint/pprint dff)
-    (apply-diff dff)))
+    (when-not dry-run
+      (apply-diff dff))))
 
 (defn -main
   [& args]
@@ -188,5 +190,5 @@
       errors (exit 1 (error-msg errors))
       (not= (count arguments) 1) (exit 1 (format "Need a single file argument, but got %d arguments" (count arguments)))
       (not (file-exists (first arguments))) (exit 1 (error-msg [(format "No such file '%s'" (first arguments))]))
-      :default (run (:filetype options) (first arguments)))))
+      :default (run (:filetype options) (first arguments) (:dry-run options)))))
 
